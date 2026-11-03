@@ -1,5 +1,6 @@
 package com.payup.app.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,10 +16,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.payup.app.data.model.Account
+import com.payup.app.data.model.Category
+import com.payup.app.data.model.TransactionStatus
 import com.payup.app.data.model.TransactionType
 import com.payup.app.service.ScreenshotCandidate
+import com.payup.app.ui.component.*
 import com.payup.app.ui.theme.PayUpIcons
+import com.payup.app.ui.theme.PayUpThemeExtended
 import com.payup.app.ui.viewmodel.ScreenshotReviewViewModel
 import com.payup.app.util.CurrencyUtils
 import com.payup.app.util.DateUtils
@@ -34,6 +41,8 @@ fun ScreenshotReviewScreen(
     val categories by viewModel.categories.collectAsState(initial = emptyList())
     val accounts by viewModel.accounts.collectAsState(initial = emptyList())
 
+    var editingCandidate by remember { mutableStateOf<ScreenshotCandidate?>(null) }
+
     LaunchedEffect(state.importSuccess) {
         if (state.importSuccess) {
             onImportComplete()
@@ -41,187 +50,480 @@ fun ScreenshotReviewScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Review Scanned Payments") },
+                title = {
+                    Column {
+                        Text(
+                            "Review Import",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "On-device OCR Extraction",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = PayUpThemeExtended.secondaryTextColor
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(PayUpIcons.ArrowBack, contentDescription = "Back")
                     }
                 },
+                actions = {
+                    if (state.candidates.isNotEmpty()) {
+                        val allSelected = state.candidates.none { it.isExcluded }
+                        TextButton(
+                            onClick = {
+                                if (allSelected) viewModel.deselectAll() else viewModel.selectAll()
+                            }
+                        ) {
+                            Text(
+                                if (allSelected) "Deselect All" else "Select All",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
         bottomBar = {
-            val validCount = state.candidates.count { !it.isExcluded }
-            val totalAmount = state.candidates.filter { !it.isExcluded }.sumOf { it.amountPaise }
-            Surface(
-                tonalElevation = 6.dp,
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            if (state.candidates.isNotEmpty() && !state.isScanning) {
+                val validCount = state.candidates.count { !it.isExcluded }
+                val totalPaise = state.candidates.filter { !it.isExcluded }.sumOf { it.amountPaise }
+
+                Surface(
+                    color = PayUpThemeExtended.cardColor,
+                    border = BorderStroke(1.dp, PayUpThemeExtended.borderColor),
+                    shadowElevation = 0.dp
                 ) {
-                    Column {
-                        Text(
-                            "$validCount transaction${if (validCount != 1) "s" else ""} ready",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Total: ${CurrencyUtils.formatPaiseCompact(totalAmount)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Button(
-                        onClick = { viewModel.confirmImport() },
-                        enabled = validCount > 0 && !state.isImporting,
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (state.isImporting) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
-                        } else {
-                            Text("Confirm & Import ($validCount)")
+                        Column {
+                            Text(
+                                "$validCount selected",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = PayUpThemeExtended.secondaryTextColor
+                            )
+                            Text(
+                                CurrencyUtils.formatPaiseCompact(totalPaise),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
+                        PayUpPrimaryButton(
+                            text = "Import (${validCount})",
+                            onClick = { viewModel.confirmImport() },
+                            enabled = validCount > 0 && !state.isImporting,
+                            isLoading = state.isImporting
+                        )
                     }
                 }
             }
         }
     ) { padding ->
-        if (state.isScanning) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(Modifier.height(16.dp))
-                    Text("Scanning screenshots on-device with ML Kit...", style = MaterialTheme.typography.bodyMedium)
+        when {
+            state.isScanning -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(36.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 3.dp
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Text(
+                            "Analyzing Screenshots",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Extracting payment receipts on-device with ML Kit...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PayUpThemeExtended.secondaryTextColor
+                        )
+                    }
                 }
             }
-        } else if (state.candidates.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                    Icon(PayUpIcons.Info, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(12.dp))
-                    Text(state.error ?: "No transaction data detected in image.", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = onBack) { Text("Go Back") }
-                }
+            state.candidates.isEmpty() -> {
+                PayUpEmptyState(
+                    icon = PayUpIcons.Info,
+                    title = "No Transactions Found",
+                    description = state.error ?: "Could not detect transaction amounts or merchants in the selected images. Try taking a clearer screenshot.",
+                    actionText = "Choose Again",
+                    onActionClick = onBack,
+                    modifier = Modifier.padding(padding)
+                )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Text(
-                        "Verify and edit payments extracted from your screenshot. Uncheck any item you don't want to import.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Text(
+                            "Verify detected payments before importing. Every transaction can be edited or excluded.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PayUpThemeExtended.secondaryTextColor,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    }
 
-                items(state.candidates, key = { it.id }) { candidate ->
-                    CandidateCard(
-                        candidate = candidate,
-                        onToggleExclude = { viewModel.toggleExclude(candidate.id) },
-                        onUpdateMerchant = { newMerchant ->
-                            viewModel.updateCandidate(candidate.id) { it.copy(merchant = newMerchant) }
-                        },
-                        onUpdateAmount = { newPaise ->
-                            viewModel.updateCandidate(candidate.id) { it.copy(amountPaise = newPaise) }
-                        }
-                    )
+                    items(state.candidates, key = { it.id }) { candidate ->
+                        CandidateReviewCard(
+                            candidate = candidate,
+                            categories = categories,
+                            accounts = accounts,
+                            onToggleExclude = { viewModel.toggleExclude(candidate.id) },
+                            onEdit = { editingCandidate = candidate },
+                            onDelete = { viewModel.deleteCandidate(candidate.id) }
+                        )
+                    }
+
+                    item {
+                        Spacer(Modifier.height(80.dp))
+                    }
                 }
             }
         }
     }
+
+    // Modal Sheet for Editing Candidate Details
+    editingCandidate?.let { cand ->
+        EditCandidateSheet(
+            candidate = cand,
+            categories = categories,
+            accounts = accounts,
+            onDismiss = { editingCandidate = null },
+            onSave = { updated ->
+                viewModel.updateCandidate(cand.id) { updated }
+                editingCandidate = null
+            }
+        )
+    }
 }
 
 @Composable
-private fun CandidateCard(
+private fun CandidateReviewCard(
     candidate: ScreenshotCandidate,
+    categories: List<Category>,
+    accounts: List<Account>,
     onToggleExclude: () -> Unit,
-    onUpdateMerchant: (String) -> Unit,
-    onUpdateAmount: (Long) -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    ElevatedCard(
+    val categoryName = categories.find { it.id == candidate.categoryId }?.name ?: "Uncategorized"
+    val accountName = accounts.find { it.id == candidate.accountId }?.name ?: "UPI / Wallet"
+
+    PayUpCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (candidate.isExcluded) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.surface
-        )
+        onClick = onEdit
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Top Row: Checkbox, Source App Pill, Status Badge, Trash
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
                     checked = !candidate.isExcluded,
-                    onCheckedChange = { onToggleExclude() }
+                    onCheckedChange = { onToggleExclude() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.primary,
+                        checkmarkColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                // Source App Badge
+                PayUpBadge(
+                    text = candidate.sourceApp,
+                    icon = PayUpIcons.PhotoCamera
                 )
                 Spacer(Modifier.width(8.dp))
+                // Status Badge
+                when (candidate.status) {
+                    TransactionStatus.COMPLETED -> PayUpBadge(text = "Completed", icon = PayUpIcons.Check)
+                    TransactionStatus.PENDING -> PayUpBadge(text = "Pending", icon = PayUpIcons.Calendar, isWarning = true)
+                    TransactionStatus.FAILED -> PayUpBadge(text = "Failed", icon = PayUpIcons.Close, isNegative = true)
+                    TransactionStatus.REFUNDED -> PayUpBadge(text = "Refunded", icon = PayUpIcons.Transfer)
+                }
+
+                Spacer(Modifier.weight(1f))
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        PayUpIcons.Delete,
+                        contentDescription = "Delete",
+                        modifier = Modifier.size(16.dp),
+                        tint = PayUpThemeExtended.secondaryTextColor
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Middle Row: Merchant & Amount
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         candidate.merchant,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold,
+                        color = if (candidate.isExcluded) PayUpThemeExtended.secondaryTextColor else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        DateUtils.formatDateTime(candidate.timestamp),
+                        candidate.rawDateText ?: DateUtils.formatDateTime(candidate.timestamp),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = PayUpThemeExtended.secondaryTextColor
                     )
                 }
+                Spacer(Modifier.width(12.dp))
+                val sign = if (candidate.type == TransactionType.INCOME) "+" else "-"
                 Text(
-                    (if (candidate.type == TransactionType.INCOME) "+" else "-") +
-                            CurrencyUtils.formatPaiseCompact(candidate.amountPaise),
-                    style = MaterialTheme.typography.titleMedium,
+                    sign + CurrencyUtils.formatPaise(candidate.amountPaise),
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (candidate.type == TransactionType.INCOME) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+                    color = if (candidate.isExcluded) PayUpThemeExtended.secondaryTextColor else MaterialTheme.colorScheme.onSurface
                 )
             }
 
+            Spacer(Modifier.height(12.dp))
+
+            // Bottom metadata pills: Category, Account, UTR
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, PayUpThemeExtended.borderColor)
+                    ) {
+                        Text(
+                            categoryName,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, PayUpThemeExtended.borderColor)
+                    ) {
+                        Text(
+                            accountName,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            color = PayUpThemeExtended.secondaryTextColor
+                        )
+                    }
+                }
+
+                if (candidate.referenceId != null) {
+                    Text(
+                        "UTR: ${candidate.referenceId}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PayUpThemeExtended.secondaryTextColor
+                    )
+                }
+            }
+
+            // Duplicate warning banner
             if (candidate.isLikelyDuplicate) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(10.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, PayUpThemeExtended.borderColor)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(PayUpIcons.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            PayUpIcons.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text(
-                            "Likely duplicate: Similar transaction already in ledger",
+                            "Likely duplicate: Similar transaction already recorded",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditCandidateSheet(
+    candidate: ScreenshotCandidate,
+    categories: List<Category>,
+    accounts: List<Account>,
+    onDismiss: () -> Unit,
+    onSave: (ScreenshotCandidate) -> Unit
+) {
+    var merchantText by remember { mutableStateOf(candidate.merchant) }
+    var amountText by remember { mutableStateOf((candidate.amountPaise / 100.0).toString().removeSuffix(".0")) }
+    var selectedCategoryId by remember { mutableStateOf(candidate.categoryId) }
+    var selectedAccountId by remember { mutableStateOf(candidate.accountId ?: accounts.firstOrNull()?.id) }
+    var selectedType by remember { mutableStateOf(candidate.type) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = PayUpThemeExtended.cardColor,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                "Edit Scanned Payment",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Direction Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PayUpPill(
+                    text = "Expense",
+                    isSelected = selectedType == TransactionType.EXPENSE,
+                    onClick = { selectedType = TransactionType.EXPENSE },
+                    modifier = Modifier.weight(1f)
+                )
+                PayUpPill(
+                    text = "Income",
+                    isSelected = selectedType == TransactionType.INCOME,
+                    onClick = { selectedType = TransactionType.INCOME },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Amount Input
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { if (it.isEmpty() || it.matches(Regex("""^\d*\.?\d{0,2}$"""))) amountText = it },
+                label = { Text("Amount (₹)") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = PayUpThemeExtended.borderColor
+                )
+            )
+
+            // Merchant / Recipient
+            OutlinedTextField(
+                value = merchantText,
+                onValueChange = { merchantText = it },
+                label = { Text("Merchant / Recipient") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = PayUpThemeExtended.borderColor
+                )
+            )
+
+            // Category Selection
+            Text("Category", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(categories) { cat ->
+                    val isSelected = selectedCategoryId == cat.id
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { selectedCategoryId = cat.id },
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            cat.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                         )
                     }
                 }
             }
 
-            if (candidate.referenceId != null) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Ref / UTR: ${candidate.referenceId}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Save Button
+            PayUpPrimaryButton(
+                text = "Apply Changes",
+                onClick = {
+                    val paise = CurrencyUtils.parseToPaise(amountText)
+                    onSave(
+                        candidate.copy(
+                            merchant = merchantText.ifBlank { "UPI Payment" },
+                            amountPaise = if (paise > 0) paise else candidate.amountPaise,
+                            categoryId = selectedCategoryId,
+                            accountId = selectedAccountId,
+                            type = selectedType
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

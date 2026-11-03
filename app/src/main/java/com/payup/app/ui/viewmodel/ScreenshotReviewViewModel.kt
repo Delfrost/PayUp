@@ -111,6 +111,21 @@ class ScreenshotReviewViewModel(application: Application) : AndroidViewModel(app
         updateCandidate(id) { it.copy(isExcluded = !it.isExcluded) }
     }
 
+    fun deleteCandidate(id: String) {
+        val updated = _state.value.candidates.filter { it.id != id }
+        _state.value = _state.value.copy(candidates = updated)
+    }
+
+    fun selectAll() {
+        val updated = _state.value.candidates.map { it.copy(isExcluded = false) }
+        _state.value = _state.value.copy(candidates = updated)
+    }
+
+    fun deselectAll() {
+        val updated = _state.value.candidates.map { it.copy(isExcluded = true) }
+        _state.value = _state.value.copy(candidates = updated)
+    }
+
     fun confirmImport() {
         val toImport = _state.value.candidates.filter { !it.isExcluded }
         if (toImport.isEmpty()) return
@@ -131,9 +146,10 @@ class ScreenshotReviewViewModel(application: Application) : AndroidViewModel(app
                         status = cand.status,
                         merchant = cand.merchant,
                         categoryId = cand.categoryId,
-                        accountId = cand.accountId,
+                        accountId = cand.accountId ?: "acc_upi",
                         timestamp = cand.timestamp,
                         referenceId = cand.referenceId,
+                        sourceApp = cand.sourceApp,
                         detectionMethod = DetectionMethod.SCREENSHOT_OCR,
                         dedupHash = hash
                     )

@@ -1,17 +1,23 @@
 package com.payup.app.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.payup.app.ui.component.PayUpEmptyState
 import com.payup.app.ui.theme.PayUpIcons
+import com.payup.app.ui.theme.PayUpThemeExtended
 import com.payup.app.ui.viewmodel.TransactionListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,6 +34,7 @@ fun TransactionListScreen(
     var isSearchActive by remember { mutableStateOf(false) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -38,22 +45,32 @@ fun TransactionListScreen(
                                 searchQuery = it
                                 viewModel.setSearch(it)
                             },
-                            placeholder = { Text("Search merchant, note, ref...") },
+                            placeholder = { Text("Search merchant, notes, UTR...", style = MaterialTheme.typography.bodyMedium) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = PayUpThemeExtended.borderColor,
+                                focusedContainerColor = PayUpThemeExtended.cardColor,
+                                unfocusedContainerColor = PayUpThemeExtended.cardColor
+                            ),
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
                                     IconButton(onClick = {
                                         searchQuery = ""
                                         viewModel.setSearch("")
                                     }) {
-                                        Icon(PayUpIcons.Close, contentDescription = "Clear search")
+                                        Icon(PayUpIcons.Close, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
                         )
                     } else {
-                        Text("All Transactions ($count)", fontWeight = FontWeight.Bold)
+                        Column {
+                            Text("All Transactions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("$count recorded", style = MaterialTheme.typography.labelSmall, color = PayUpThemeExtended.secondaryTextColor)
+                        }
                     }
                 },
                 navigationIcon = {
@@ -75,12 +92,23 @@ fun TransactionListScreen(
                             Icon(PayUpIcons.Search, contentDescription = "Search")
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransaction) {
-                Icon(PayUpIcons.Add, contentDescription = "Add Transaction")
+            FloatingActionButton(
+                onClick = onAddTransaction,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+            ) {
+                Icon(PayUpIcons.Add, contentDescription = "Add Transaction", modifier = Modifier.size(24.dp))
             }
         }
     ) { padding ->
@@ -88,8 +116,8 @@ fun TransactionListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(
                 count = transactions.itemCount,
@@ -97,7 +125,7 @@ fun TransactionListScreen(
             ) { index ->
                 val txn = transactions[index]
                 if (txn != null) {
-                    TransactionRow(txn, onClick = { onTransactionClick(txn.id) })
+                    AppleTransactionRow(txn, onClick = { onTransactionClick(txn.id) })
                 }
             }
 
@@ -110,7 +138,11 @@ fun TransactionListScreen(
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 2.dp
+                            )
                         }
                     }
                 }
@@ -119,7 +151,8 @@ fun TransactionListScreen(
                         Text(
                             "Error loading more transactions",
                             modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.error
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PayUpThemeExtended.secondaryTextColor
                         )
                     }
                 }
@@ -134,26 +167,24 @@ fun TransactionListScreen(
                             .padding(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 3.dp
+                        )
                     }
                 }
             }
 
             if (transactions.itemCount == 0 && transactions.loadState.refresh !is LoadState.Loading) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            if (searchQuery.isNotBlank()) "No transactions matching \"$searchQuery\""
-                            else "No transactions recorded yet",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    PayUpEmptyState(
+                        icon = PayUpIcons.Transactions,
+                        title = if (searchQuery.isNotBlank()) "No Matching Payments" else "No Transactions Yet",
+                        description = if (searchQuery.isNotBlank()) "No recorded transaction contains \"$searchQuery\"." else "Tap '+' to add your first transaction.",
+                        actionText = if (searchQuery.isBlank()) "Add Transaction" else null,
+                        onActionClick = if (searchQuery.isBlank()) onAddTransaction else null
+                    )
                 }
             }
 

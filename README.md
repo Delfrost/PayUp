@@ -1,4 +1,4 @@
-# MoneyPilot (PayUp) 💸
+# PayUp 💸
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org/)
 [![Android SDK](https://img.shields.io/badge/Target%20SDK-35-green?style=flat-square&logo=android)](https://developer.android.com/about/versions/15)
@@ -7,7 +7,7 @@
 [![Offline First](https://img.shields.io/badge/Privacy-100%25%20Offline-black?style=flat-square)](https://github.com/Delfrost/PayUp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey?style=flat-square)](LICENSE)
 
-**MoneyPilot** (also known as **PayUp**) is an offline-first, privacy-focused personal finance and expense tracking application built natively for Android. Designed to deliver bank-grade accounting precision without compromising user data, MoneyPilot operates entirely on-device with zero cloud exposure, zero third-party telemetry, and zero subscription paywalls.
+**PayUp** is an offline-first, privacy-focused personal finance and expense tracking application built natively for Android. Designed to deliver bank-grade accounting precision without compromising user data, PayUp operates entirely on-device with zero cloud exposure, zero third-party telemetry, and zero subscription paywalls.
 
 ---
 
@@ -46,7 +46,7 @@
 
 ## 🛠️ Technology Stack & Architecture
 
-MoneyPilot is architected following modern Android best practices (MAD) with single-activity architecture, unidirectional data flow (UDF), and clean layer separation:
+PayUp is architected following modern Android best practices (MAD) with single-activity architecture, unidirectional data flow (UDF), and clean layer separation:
 
 - **Language:** Kotlin 2.0 (with KSP code generation)
 - **UI Framework:** [Jetpack Compose](https://developer.android.com/jetpack/compose) with Material Design 3 (Material3)
@@ -140,7 +140,7 @@ PayUp/
 
 ## 🛡️ Privacy & Permissions
 
-MoneyPilot requests optional permissions only when corresponding features are enabled by the user:
+PayUp requests optional permissions only when corresponding features are enabled by the user:
 
 | Permission | Purpose |
 |---|---|

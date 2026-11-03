@@ -1,7 +1,7 @@
 package com.payup.app.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -25,7 +25,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.payup.app.data.model.Account
 import com.payup.app.data.model.Category
 import com.payup.app.data.model.TransactionType
+import com.payup.app.ui.component.*
 import com.payup.app.ui.theme.PayUpIcons
+import com.payup.app.ui.theme.PayUpThemeExtended
 import com.payup.app.ui.viewmodel.AddTransactionViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +49,6 @@ fun AddTransactionScreen(
         }
     }
 
-    // Auto-select first account if none selected
     LaunchedEffect(accounts) {
         if (state.selectedAccountId == null && accounts.isNotEmpty()) {
             val upiOrFirst = accounts.find { it.name.contains("UPI", ignoreCase = true) } ?: accounts.first()
@@ -59,7 +60,6 @@ fun AddTransactionScreen(
         if (state.type == TransactionType.INCOME) it.isIncome else !it.isIncome
     }
 
-    // Auto-select first category if none selected
     LaunchedEffect(filteredCategories, state.type) {
         if (state.selectedCategoryId == null && filteredCategories.isNotEmpty()) {
             viewModel.updateCategory(filteredCategories.first().id)
@@ -67,16 +67,19 @@ fun AddTransactionScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Record Payment", fontWeight = FontWeight.Bold) },
+                title = { Text("Record Payment", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(PayUpIcons.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -87,55 +90,40 @@ fun AddTransactionScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Modern Segmented Type Control
+            // 1. Monochromatic Segmented Control
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TransactionType.entries.forEach { type ->
                     val isSelected = state.type == type
-                    val activeBg = when (type) {
-                        TransactionType.EXPENSE -> Color(0xFFD32F2F)
-                        TransactionType.INCOME -> Color(0xFF2E7D32)
-                        TransactionType.TRANSFER -> Color(0xFF1565C0)
-                    }
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) activeBg else Color.Transparent)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                             .clickable { viewModel.updateType(type) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = type.name.lowercase().replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else PayUpThemeExtended.secondaryTextColor
                         )
                     }
                 }
             }
 
-            // 2. Large Modern Amount Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = when (state.type) {
-                        TransactionType.EXPENSE -> Color(0xFFD32F2F).copy(alpha = 0.08f)
-                        TransactionType.INCOME -> Color(0xFF2E7D32).copy(alpha = 0.08f)
-                        TransactionType.TRANSFER -> Color(0xFF1565C0).copy(alpha = 0.08f)
-                    }
-                )
-            ) {
+            // 2. Large Amount Card
+            PayUpCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -143,9 +131,11 @@ fun AddTransactionScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "Amount",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "AMOUNT",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = PayUpThemeExtended.secondaryTextColor,
+                        letterSpacing = 1.sp
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -156,154 +146,138 @@ fun AddTransactionScreen(
                             "₹",
                             fontSize = 38.sp,
                             fontWeight = FontWeight.Bold,
-                            color = when (state.type) {
-                                TransactionType.EXPENSE -> Color(0xFFD32F2F)
-                                TransactionType.INCOME -> Color(0xFF2E7D32)
-                                TransactionType.TRANSFER -> Color(0xFF1565C0)
-                            }
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(Modifier.width(4.dp))
                         OutlinedTextField(
                             value = state.amountText,
                             onValueChange = { viewModel.updateAmount(it) },
-                            placeholder = { Text("0.00", fontSize = 34.sp) },
+                            placeholder = { Text("0.00", fontSize = 34.sp, color = PayUpThemeExtended.secondaryTextColor.copy(alpha = 0.5f)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             textStyle = LocalTextStyle.current.copy(
                                 fontSize = 34.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Start,
-                                color = when (state.type) {
-                                    TransactionType.EXPENSE -> Color(0xFFD32F2F)
-                                    TransactionType.INCOME -> Color(0xFF2E7D32)
-                                    TransactionType.TRANSFER -> Color(0xFF1565C0)
-                                }
+                                color = MaterialTheme.colorScheme.onSurface
                             ),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color.Transparent,
                                 unfocusedBorderColor = Color.Transparent
                             ),
-                            modifier = Modifier.width(IntrinsicSize.Min).widthIn(min = 120.dp, max = 240.dp)
+                            modifier = Modifier
+                                .width(IntrinsicSize.Min)
+                                .widthIn(min = 120.dp, max = 240.dp)
                         )
                     }
                     Text(
-                        "Track any amount — ₹1, ₹10 or lakhs without minimum thresholds",
+                        "Exact paise precision — zero floating-point rounding errors",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = PayUpThemeExtended.secondaryTextColor
                     )
                 }
             }
 
-            // 3. Payment Method / Account Pills (UPI, Bank, Cash, Card)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Paid via (Payment Account)",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    accounts.forEach { account ->
-                        AccountPill(
-                            account = account,
-                            isSelected = state.selectedAccountId == account.id,
-                            onSelect = { viewModel.updateAccount(account.id) }
-                        )
-                    }
+            // 3. Payment Method (UPI, Bank, Cash, Card)
+            PayUpSectionHeader(title = "Payment Account")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                accounts.forEach { account ->
+                    PayUpPill(
+                        text = account.name,
+                        isSelected = state.selectedAccountId == account.id,
+                        onClick = { viewModel.updateAccount(account.id) },
+                        icon = when {
+                            account.name.contains("UPI", ignoreCase = true) -> PayUpIcons.Payments
+                            account.name.contains("Bank", ignoreCase = true) -> PayUpIcons.Account
+                            account.name.contains("Card", ignoreCase = true) -> PayUpIcons.Transactions
+                            else -> PayUpIcons.Wallet
+                        }
+                    )
                 }
             }
 
             // 4. Category Grid / Quick Select
+            PayUpSectionHeader(
+                title = "Category",
+                actionText = "View All (${filteredCategories.size})",
+                onActionClick = { showAllCategoriesSheet = true }
+            )
+
+            val topCategories = filteredCategories.take(6)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Category",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    TextButton(onClick = { showAllCategoriesSheet = true }) {
-                        Text("View all (${filteredCategories.size})")
-                    }
-                }
-
-                // Show top 6 categories as modern interactive chips
-                val topCategories = filteredCategories.take(6)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    topCategories.chunked(3).forEach { rowCats ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            rowCats.forEach { cat ->
-                                CategoryChip(
-                                    category = cat,
-                                    isSelected = state.selectedCategoryId == cat.id,
-                                    modifier = Modifier.weight(1f),
-                                    onSelect = { viewModel.updateCategory(cat.id) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 4b. Budget Override (Optional)
-            if (state.type == TransactionType.EXPENSE && budgets.isNotEmpty()) {
-                Column {
-                    Text(
-                        "Budget Allocation",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(4.dp))
+                topCategories.chunked(3).forEach { rowCats ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FilterChip(
-                            selected = state.selectedBudgetId == null,
-                            onClick = { viewModel.updateBudget(null) },
-                            label = { Text("Auto (from Category)") }
-                        )
-                        budgets.forEach { b ->
-                            val isSelected = state.selectedBudgetId == b.id
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.updateBudget(b.id) },
-                                label = { Text(b.name) }
+                        rowCats.forEach { cat ->
+                            CategoryPill(
+                                category = cat,
+                                isSelected = state.selectedCategoryId == cat.id,
+                                modifier = Modifier.weight(1f),
+                                onSelect = { viewModel.updateCategory(cat.id) }
                             )
                         }
                     }
                 }
             }
 
-            // 5. Merchant / Description
+            // 4b. Budget Envelope Assignment (for Expenses)
+            if (state.type == TransactionType.EXPENSE && budgets.isNotEmpty()) {
+                PayUpSectionHeader(title = "Budget Envelope")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PayUpPill(
+                        text = "Auto (from Category)",
+                        isSelected = state.selectedBudgetId == null,
+                        onClick = { viewModel.updateBudget(null) }
+                    )
+                    budgets.forEach { b ->
+                        PayUpPill(
+                            text = b.name,
+                            isSelected = state.selectedBudgetId == b.id,
+                            onClick = { viewModel.updateBudget(b.id) }
+                        )
+                    }
+                }
+            }
+
+            // 5. Merchant Input
+            PayUpSectionHeader(title = "Payee Details")
             OutlinedTextField(
                 value = state.merchant,
                 onValueChange = { viewModel.updateMerchant(it) },
-                label = { Text("Merchant or Payee (e.g. Swiggy, Chai Tapri, Metro)") },
-                leadingIcon = { Icon(PayUpIcons.Restaurant, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                shape = RoundedCornerShape(16.dp),
+                label = { Text("Merchant / Payee Name") },
+                placeholder = { Text("e.g. Swiggy, Metro, Decathlon, Groceries") },
+                leadingIcon = { Icon(PayUpIcons.Restaurant, contentDescription = null, tint = PayUpThemeExtended.secondaryTextColor, modifier = Modifier.size(18.dp)) },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = PayUpThemeExtended.borderColor
+                ),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            // 6. Notes (Optional)
+            // 6. Notes Input
             OutlinedTextField(
                 value = state.notes,
                 onValueChange = { viewModel.updateNotes(it) },
-                label = { Text("Add Note (optional)") },
-                shape = RoundedCornerShape(16.dp),
+                label = { Text("Notes (Optional)") },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = PayUpThemeExtended.borderColor
+                ),
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2
             )
@@ -311,202 +285,134 @@ fun AddTransactionScreen(
             if (state.error != null) {
                 Text(
                     text = state.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
             Spacer(Modifier.height(4.dp))
 
             // 7. Large Modern Save Button
-            Button(
+            PayUpPrimaryButton(
+                text = "Save Transaction",
+                icon = PayUpIcons.Check,
                 onClick = { viewModel.save() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(18.dp),
                 enabled = !state.isSaving && state.amountText.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                if (state.isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Icon(PayUpIcons.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Save Transaction", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-            }
+                isLoading = state.isSaving,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 
-    // Modern Bottom Sheet for Selecting from All Categories
     if (showAllCategoriesSheet) {
         ModalBottomSheet(
             onDismissRequest = { showAllCategoriesSheet = false },
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            containerColor = PayUpThemeExtended.cardColor,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
             ) {
-                Text(
-                    "Select Category",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("Select Category", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(16.dp))
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 400.dp)
+                        .heightIn(max = 360.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     filteredCategories.forEach { cat ->
+                        val isSelected = state.selectedCategoryId == cat.id
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable {
                                     viewModel.updateCategory(cat.id)
                                     showAllCategoriesSheet = false
                                 },
-                            color = if (state.selectedCategoryId == cat.id) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            }
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(cat.color.toInt() or 0xFF000000.toInt()).copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        PayUpIcons.forCategory(cat.icon),
-                                        contentDescription = null,
-                                        tint = Color(cat.color.toInt() or 0xFF000000.toInt()),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(Modifier.width(14.dp))
+                                Icon(
+                                    PayUpIcons.forCategory(cat.icon),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(Modifier.width(12.dp))
                                 Text(
                                     cat.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (state.selectedCategoryId == cat.id) FontWeight.Bold else FontWeight.Medium,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f)
                                 )
-                                if (state.selectedCategoryId == cat.id) {
-                                    Icon(PayUpIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                if (isSelected) {
+                                    Icon(PayUpIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
 }
 
 @Composable
-private fun AccountPill(
-    account: Account,
-    isSelected: Boolean,
-    onSelect: () -> Unit
-) {
-    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-
-    Surface(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(2.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable(onClick = onSelect),
-        color = bgColor,
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                when {
-                    account.name.contains("UPI", ignoreCase = true) -> PayUpIcons.Payments
-                    account.name.contains("Bank", ignoreCase = true) -> PayUpIcons.Account
-                    account.name.contains("Card", ignoreCase = true) -> PayUpIcons.Transactions
-                    else -> PayUpIcons.Wallet
-                },
-                contentDescription = null,
-                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                account.name,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun CategoryChip(
+private fun CategoryPill(
     category: Category,
     isSelected: Boolean,
     modifier: Modifier = Modifier,
     onSelect: () -> Unit
 ) {
-    val catColor = Color(category.color.toInt() or 0xFF000000.toInt())
-    val bgColor = if (isSelected) catColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-    val borderColor = if (isSelected) catColor else Color.Transparent
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.primary else PayUpThemeExtended.cardColor
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val border = if (isSelected) null else BorderStroke(1.dp, PayUpThemeExtended.borderColor)
 
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onSelect),
         color = bgColor,
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(12.dp),
+        border = border
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 6.dp),
+                .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 PayUpIcons.forCategory(category.icon),
                 contentDescription = null,
-                tint = catColor,
+                tint = contentColor,
                 modifier = Modifier.size(22.dp)
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 category.name,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
-                color = if (isSelected) catColor else MaterialTheme.colorScheme.onSurfaceVariant
+                color = contentColor
             )
         }
     }

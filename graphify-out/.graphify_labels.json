@@ -1,7 +1,6 @@
 {
   "0": "Transaction Data Access",
   "1": "App Navigation & Entry",
-  "2": "Account Persistence",
   "3": "Category Persistence",
   "4": "Merchant Rule Persistence",
   "7": "Dashboard View Model",
@@ -11,7 +10,6 @@
   "20": "Add Transaction ViewModel",
   "24": "Account Model & Types",
   "30": "Project Architecture Concepts",
-  "33": "Transaction Detection Domain",
   "34": "Gradle Wrapper Scripts",
   "35": "App Build Configuration",
   "36": "Root Build Configuration",
