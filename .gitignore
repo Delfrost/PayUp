@@ -1,0 +1,47 @@
+# Gradle files
+.gradle/
+build/
+*/build/
+app/build/
+.kotlin/
+
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Local configuration (SDK path, credentials)
+local.properties
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# Keystores & credentials
+*.jks
+*.keystore
+
+# Build cache & native
+.externalNativeBuild
+.cxx/
+captures/
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.log
+
+# Graphify temporary caches & locks
+graphify-out/.rebuild.lock
+graphify-out/.ast_cache/
+graphify-out/cache/
+graphify-out/202*-*/
+graphify-out/*.pending.json
+graphify-out/*.sig
